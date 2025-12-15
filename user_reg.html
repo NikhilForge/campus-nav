@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Registration</title>
+
+<style>
+*{
+  box-sizing:border-box;
+  font-family:Arial, sans-serif;
+}
+
+body{
+  margin:0;
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:linear-gradient(135deg,#43e97b,#38f9d7);
+}
+
+.register-box{
+  background:white;
+  padding:30px;
+  width:350px;
+  border-radius:10px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.2);
+}
+
+.register-box h2{
+  text-align:center;
+  margin-bottom:20px;
+}
+
+input{
+  width:100%;
+  padding:10px;
+  margin:10px 0;
+  border:1px solid #ccc;
+  border-radius:5px;
+}
+
+button{
+  width:100%;
+  padding:10px;
+  border:none;
+  background:#43e97b;
+  color:white;
+  font-size:16px;
+  border-radius:5px;
+  cursor:pointer;
+}
+
+button:hover{
+  background:#2ecc71;
+}
+
+p{
+  text-align:center;
+  margin-top:15px;
+  font-size:14px;
+}
+
+a{
+  color:#2ecc71;
+  text-decoration:none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="register-box">
+  <h2>User Registration</h2>
+
+  <!-- NO onsubmit -->
+  <form>
+    <input type="text" id="username" placeholder="User Name" required>
+    <input type="email" id="email" placeholder="Email" required>
+    <input type="password" id="password" placeholder="Password" required>
+    <input type="password" id="confirmPassword" placeholder="Confirm Password" required>
+
+    <!-- IMPORTANT FIX -->
+    <button type="button" onclick="registerUser()">Register</button>
+  </form>
+
+  <p>Already registered? <a href="user_login.html">Login</a></p>
+</div>
+
+<!-- Firebase Logic -->
+<script type="module">
+import { auth } from "./firebase.js";
+import { createUserWithEmailAndPassword } 
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+window.registerUser = function () {
+    alert("Register clicked"); // ✅ DEBUG (you can remove later)
+
+    const username = document.getElementById("username").value;
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    const confirmPassword = document.getElementById("confirmPassword").value;
+
+    if (!username || !email || !password || !confirmPassword) {
+        alert("Please fill all fields");
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        alert("Passwords do not match");
+        return;
+    }
+
+    createUserWithEmailAndPassword(auth, email, password)
+        .then(() => {
+            alert("Registration successful!");
+            window.location.href = "user_login.html";
+        })
+        .catch((error) => {
+            alert(error.message);
+            console.error(error);
+        });
+};
+</script>
+
+</body>
+</html>
