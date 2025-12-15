@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Building Layout Editor – Smooth v2.1</title>
+<style>
+/* --- CORE STYLES --- */
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Roboto,sans-serif;background:#eef2f5;color:#333;overflow:hidden;}
+.container{display:flex;flex-direction:column;height:100vh;}
+
+/* --- HEADER & TOOLBAR --- */
+.header{
+  background:#fff;padding:10px 20px;border-bottom:1px solid #ddd;
+  display:flex;align-items:center;justify-content:space-between;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 100;
+}
+.header h2{font-size:18px;margin-right:20px;color:#4a9eff;}
+.toolbar-group {display:flex;align-items:center;gap:10px;}
+.toolbar-group label {font-size:13px; font-weight: 500;}
+
+button{cursor:pointer;border-radius:4px;border:1px solid #ccc;background:#f9f9f9;color:#333;padding:5px 12px;font-size:13px;transition:0.2s;}
+button:hover{background:#eef;border-color:#4a9eff;color:#4a9eff;}
+button.primary{background:#4a9eff;color:#fff;border-color:#4a9eff;}
+button.primary:hover{background:#3b8bdb;}
+button.danger{color:#d9534f;border-color:#d9534f;}
+button.danger:hover{background:#d9534f;color:#fff;}
+
+/* --- MAIN LAYOUT --- */
+.main{display:flex;flex:1;overflow:hidden;}
+
+/* --- SIDEBAR --- */
+.sidebar{width:280px;background:#fff;border-right:1px solid #ddd;display:flex;flex-direction:column;z-index:90;}
+.sidebar-scroll{overflow-y:auto;flex:1;padding:12px;}
+
+.panel{background:#fcfcfc;padding:10px;border-radius:6px;margin-bottom:12px;border:1px solid #e0e0e0;}
+.panel h3{font-size:13px;margin-bottom:8px;color:#555;font-weight:700;text-transform:uppercase;cursor:pointer;display:flex;justify-content:space-between;}
+.panel-content{display:block;}
+.panel.collapsed .panel-content{display:none;}
+
+input,select{width:100%;padding:6px;background:#fff;border:1px solid #ccc;border-radius:4px;margin-bottom:8px;font-size:13px;}
+input[type="range"]{margin:0; vertical-align:middle; width: 100px;}
+.row {display:flex;gap:5px;}
+
+/* --- CANVAS AREA --- */
+.canvas-container{
+  flex:1;background:#e0e0e0;overflow:auto;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  padding: 40px; 
+}
+.canvas-wrap{
+  box-shadow: 0 0 30px rgba(0,0,0,0.1);
+  background: white;
+  transform-origin: center center;
+  transition: transform 0.1s linear; 
+}
+#canvas{
+  position:relative;width:1200px;height:900px;background:#fff;
+  background-image:linear-gradient(rgba(0,0,0,.08) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(0,0,0,.08) 1px,transparent 1px);
+  background-size:20px 20px;
+  overflow:hidden;
+}
+
+/* --- ELEMENTS --- */
+.element {
+  position: absolute;
+  cursor: grab;
+  user-select: none;
+  border: 1px solid rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+  /* PERFORMANCE OPTIMIZATION: will-change tells browser to prep GPU */
+  will-change: transform, left, top;
+  transition: box-shadow 0.1s, border-color 0.1s;
+}
+.element:hover { border-color: #4a9eff; }
+.element.selected {
+  outline: 2px solid #4a9eff; 
+  z-index: 100;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+}
+.element.dragging {
+  cursor: grabbing;
+  opacity: 0.9;
+  z-index: 200;
+  /* CRITICAL: Disable transition during drag for 1:1 tracking */
+  transition: none !important;
+}
+
+/* STAIRCASE PATTERN */
+.element.staircase-pattern {
+  background-image: repeating-linear-gradient(90deg,transparent,transparent 14px,rgba(0,0,0,0.3) 15px,rgba(0,0,0,0.3) 16px) !important;
+}
+
+/* RESIZE HANDLES */
+.resize{width:14px;height:14px;background:#fff;border:2px solid #4a9eff;border-radius:50%;position:absolute;z-index:150;display:none;}
+.element.selected .resize{display:block;}
+.resize.se{right:-7px;bottom:-7px;cursor:se-resize;}
+
+/* LABELS */
+.label{font-size:12px;text-align:center;color:#333;pointer-events:none;padding:2px; line-height:1.2; user-select:none; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.dims-tag {
+  position: absolute; bottom: -25px; left: 50%; transform: translateX(-50%);
+  background: #333; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px;
+  pointer-events: none; opacity: 0; transition: opacity 0.2s; white-space: nowrap; z-index:300;
+}
+.element.dragging .dims-tag, .element.resizing .dims-tag { opacity: 1; }
+
+/* FLOOR LIST ITEMS */
+.item{padding:8px;margin-bottom:4px;background:#f0f0f0;border-radius:4px;cursor:pointer;border-left:3px solid transparent;font-size:13px;}
+.item:hover{background:#e9e9e9;}
+.item.current{background:#e6f4ff;border-color:#4a9eff;color:#0056b3;font-weight:600;}
+.item-sub {margin-left:15px; font-size: 12px;}
+
+/* TOAST MSG */
+#toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 30px;
+  font-size: 14px; pointer-events: none; opacity: 0; transition: opacity 0.3s; z-index: 1000;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- HEADER -->
+  <div class="header">
+    <div class="toolbar-group">
+      <h2>Layout Editor Pro</h2>
+      <button onclick="undo()">↶ Undo</button>
+      <button onclick="redo()">↷ Redo</button>
+      <div style="width:1px;height:20px;background:#ccc;margin:0 10px;"></div>
+      <label><input type="checkbox" id="snapToggle" checked> Snap to Grid</label>
+    </div>
+    
+    <div class="toolbar-group">
+      <label>Zoom:</label>
+      <input type="range" id="zoomSlider" min="0.5" max="1.5" step="0.1" value="1" oninput="updateZoom()">
+      <span id="zoomVal">100%</span>
+      <div style="width:1px;height:20px;background:#ccc;margin:0 10px;"></div>
+      <button onclick="exportJSON()">Save JSON</button>
+      <button class="primary" onclick="exportPDF()">Export PDF</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- LEFT SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-scroll">
+        
+        <!-- Add Elements Panel -->
+        <div class="panel">
+          <h3>Add Elements</h3>
+          <select id="roomType">
+            <option value="Room">Standard Room</option>
+            <option value="Classroom">Classroom</option>
+            <option value="Office">Office</option>
+            <option value="Corridor">Corridor / Passage</option>
+            <option value="Staircase">Staircase</option>
+            <option value="Restroom">Restroom</option>
+            <option value="Hall">Hall</option>
+          </select>
+          <button class="primary" style="width:100%" onclick="addRoom()">+ Add Space</button>
+          <div class="row" style="margin-top:6px;">
+            <button style="flex:1" onclick="addEl('door',60,10,'#8B4513','Door')">Door</button>
+            <button style="flex:1" onclick="addEl('window',60,10,'#87CEEB','Window')">Window</button>
+          </div>
+        </div>
+
+        <!-- Structure Panel -->
+        <div class="panel">
+          <h3>Floors & Blocks</h3>
+          <div id="floorsList"></div>
+          <div class="row" style="margin-top:8px;">
+            <button style="flex:1" onclick="addFloor()">+ Floor</button>
+            <button style="flex:1" onclick="addBlock()">+ Block</button>
+          </div>
+        </div>
+
+        <!-- Properties Panel -->
+        <div class="panel" id="propsPanel" style="display:none; border-color:#4a9eff; background:#f0f8ff;">
+          <h3 style="color:#0056b3">Properties</h3>
+          
+          <label>Label</label>
+          <input id="pname" autocomplete="off" />
+          
+          <div class="row">
+            <div><label>Width</label><input type="number" id="pwidth"></div>
+            <div><label>Height</label><input type="number" id="pheight"></div>
+          </div>
+          
+          <div class="row">
+            <div><label>X</label><input type="number" id="px"></div>
+            <div><label>Y</label><input type="number" id="py"></div>
+          </div>
+
+          <label>Rotation (°)</label>
+          <input type="range" id="prot" min="0" max="360" step="15" style="width:100%">
+          
+          <label>Color</label>
+          <input type="color" id="pcolor" style="height:30px; padding:0;">
+          
+          <label style="display:flex;align-items:center;cursor:pointer;margin:8px 0;">
+            <input type="checkbox" id="pisStairs" style="width:auto;margin-right:8px;"> Staircase Pattern
+          </label>
+
+          <hr style="border:0; border-top:1px solid #cce; margin:10px 0;">
+          
+          <div class="row">
+             <button style="flex:1" onclick="duplicateSelected()">Duplicate</button>
+             <button class="danger" style="flex:1" onclick="deleteSelected()">Delete</button>
+          </div>
+        </div>
+        
+        <div class="panel">
+           <h3>Instructions</h3>
+           <ul style="font-size:12px; padding-left:20px; color:#666; line-height:1.4;">
+             <li><b>Drag</b> to move.</li>
+             <li><b>Corner Handle</b> to resize.</li>
+             <li><b>Del</b> key to remove.</li>
+             <li><b>Ctrl+D</b> to duplicate.</li>
+           </ul>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- CANVAS WRAPPER -->
+    <div class="canvas-container">
+       <div class="canvas-wrap" id="canvasWrap">
+         <div id="canvas"></div>
+       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast">Saved</div>
+
+<!-- PDF Libs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script type="module">
+import { db, auth } from "./firebase.js";
+
+import { doc, setDoc, getDoc }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+import { onAuthStateChanged }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+
+
+/* ================= STATE & CONFIG ================= */
+let state = {
+  floors: [{id:1, name:'Ground Floor', blocks:[{id:101, name:'Block A', elements:[]}]}],
+  currFloorId: 1,
+  currBlockId: 101,
+  selectedId: null,
+  zoom: 1,
+  gridSize: 20
+};
+
+let undoStack = [], redoStack = [];
+const canvas = document.getElementById('canvas');
+const canvasWrap = document.getElementById('canvasWrap');
+
+/* ================= INITIALIZATION ================= */
+async function init() {
+  if (!auth.currentUser) return;
+
+  const ref = doc(db, "layouts", auth.currentUser.uid);
+  const snap = await getDoc(ref);
+
+  if (snap.exists()) {
+    // Existing user → load THEIR layout
+    state.floors = snap.data().floors;
+  } else {
+    // New user → fresh empty layout
+    state.floors = [{
+      id: 1,
+      name: 'Ground Floor',
+      blocks: [{ id: 101, name: 'Block A', elements: [] }]
+    }];
+  }
+
+  state.currFloorId = state.floors[0].id;
+  state.currBlockId = state.floors[0].blocks[0].id;
+  state.selectedId = null;
+
+  renderStructure();
+  renderCanvas();
+}
+
+
+
+/* ================= HELPERS ================= */
+const curFloor = () => state.floors.find(f => f.id === state.currFloorId);
+const curBlock = () => curFloor().blocks.find(b => b.id === state.currBlockId);
+const getSelected = () => {
+  if(!state.selectedId) return null;
+  return curBlock().elements.find(e => e.id === state.selectedId);
+};
+
+async function saveState() {
+  // local backup
+  localStorage.setItem('layoutProData', JSON.stringify(state.floors));
+
+  // cloud save
+  if (auth.currentUser) {
+    await setDoc(
+      doc(db, "layouts", auth.currentUser.uid),
+      {
+        floors: state.floors,
+        updatedAt: new Date()
+      }
+    );
+  }
+
+  showToast("Saved to Firebase");
+}
+
+
+function pushHistory() {
+  undoStack.push(JSON.stringify(state.floors));
+  if(undoStack.length > 20) undoStack.shift();
+  redoStack = [];
+  saveState();
+}
+
+window.undo = function () {
+  if (!undoStack.length) return;
+  redoStack.push(JSON.stringify(state.floors));
+  state.floors = JSON.parse(undoStack.pop());
+  renderAll();
+};
+
+
+window.redo = function () {
+  if (!redoStack.length) return;
+  undoStack.push(JSON.stringify(state.floors));
+  state.floors = JSON.parse(redoStack.pop());
+  renderAll();
+};
+
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = 1;
+  setTimeout(()=> t.style.opacity = 0, 1500);
+}
+
+function snap(val) {
+  const enabled = document.getElementById('snapToggle').checked;
+  if(!enabled) return val;
+  return Math.round(val / state.gridSize) * state.gridSize;
+}
+
+/* ================= RENDERING ================= */
+function renderAll() {
+  renderStructure();
+  renderCanvas();
+  updatePropsPanel();
+}
+
+function renderStructure() {
+  const list = document.getElementById('floorsList');
+  list.innerHTML = '';
+  
+  state.floors.forEach(f => {
+    const fDiv = document.createElement('div');
+    fDiv.className = 'item' + (f.id === state.currFloorId ? ' current' : '');
+    fDiv.textContent = f.name;
+    fDiv.onclick = () => { state.currFloorId = f.id; state.currBlockId = f.blocks[0].id; state.selectedId=null; renderAll(); };
+    list.appendChild(fDiv);
+    
+    if(f.id === state.currFloorId) {
+      f.blocks.forEach(b => {
+        const bDiv = document.createElement('div');
+        bDiv.className = 'item item-sub' + (b.id === state.currBlockId ? ' current' : '');
+        bDiv.textContent = b.name;
+        bDiv.onclick = (e) => { e.stopPropagation(); state.currBlockId = b.id; state.selectedId=null; renderAll(); };
+        list.appendChild(bDiv);
+      });
+    }
+  });
+}
+
+function renderCanvas() {
+  canvas.innerHTML = '';
+  const block = curBlock();
+  
+  block.elements.forEach(el => {
+    const div = document.createElement('div');
+    div.className = 'element';
+    if(el.id === state.selectedId) div.classList.add('selected');
+    if(el.isStairs) div.classList.add('staircase-pattern');
+    
+    div.id = 'el-' + el.id; // Assign ID for direct DOM access
+    div.style.left = el.x + 'px';
+    div.style.top = el.y + 'px';
+    div.style.width = el.w + 'px';
+    div.style.height = el.h + 'px';
+    div.style.backgroundColor = el.color;
+    div.style.transform = `rotate(${el.r}deg)`;
+    div.style.zIndex = el.id === state.selectedId ? 100 : 1;
+
+    // Label
+    const lbl = document.createElement('div');
+    lbl.className = 'label';
+    lbl.textContent = el.name;
+    div.appendChild(lbl);
+
+    // Dimension Tag
+    const dims = document.createElement('div');
+    dims.className = 'dims-tag';
+    dims.id = 'dims-'+el.id;
+    dims.textContent = `${el.w} x ${el.h}`;
+    div.appendChild(dims);
+
+    // Resize Handle
+    const resizer = document.createElement('div');
+    resizer.className = 'resize se';
+    resizer.onmousedown = (e) => startResize(e, el);
+    div.appendChild(resizer);
+
+    // Drag Event
+    div.onmousedown = (e) => startDrag(e, el);
+    
+    canvas.appendChild(div);
+  });
+}
+
+function updatePropsPanel() {
+  const panel = document.getElementById('propsPanel');
+  const el = getSelected();
+  
+  if(!el) {
+    panel.style.display = 'none';
+    return;
+  }
+  
+  panel.style.display = 'block';
+  document.getElementById('pname').value = el.name;
+  document.getElementById('pwidth').value = el.w;
+  document.getElementById('pheight').value = el.h;
+  document.getElementById('px').value = el.x;
+  document.getElementById('py').value = el.y;
+  document.getElementById('prot').value = el.r;
+  document.getElementById('pcolor').value = el.color;
+  document.getElementById('pisStairs').checked = el.isStairs || false;
+}
+
+/* ================= ACTIONS ================= */
+window.addFloor = function () {
+  pushHistory();
+  const id = Date.now();
+  state.floors.push({
+    id,
+    name: 'Floor ' + (state.floors.length + 1),
+    blocks: [{ id: id + 1, name: 'Block A', elements: [] }]
+  });
+  renderStructure();
+};
+
+window.addBlock = function () {
+  pushHistory();
+  const floor = curFloor();
+  const id = Date.now();
+  floor.blocks.push({
+    id,
+    name: 'Block ' + String.fromCharCode(65 + floor.blocks.length),
+    elements: []
+  });
+  state.currBlockId = id;
+  renderAll();
+};
+
+
+window.addEl = function (type, w, h, color, defaultName) {
+  pushHistory();
+  const block = curBlock();
+  const id = Date.now();
+  const newEl = {
+    id,
+    type,
+    name: defaultName || type,
+    x: 20,
+    y: 20,
+    w,
+    h,
+    r: 0,
+    color,
+    isStairs: false
+  };
+  block.elements.push(newEl);
+  state.selectedId = id;
+  renderAll();
+};
+
+
+window.addRoom = function () {
+  const type = document.getElementById('roomType').value;
+  let w = 150, h = 100, color = '#fff';
+
+  if (type === 'Classroom') { w = 200; h = 160; color = '#eef7fa'; }
+  if (type === 'Office') { w = 120; h = 100; color = '#f5f5dc'; }
+  if (type === 'Corridor') { w = 300; h = 60; color = '#f0f0f0'; }
+  if (type === 'Staircase') { w = 100; h = 160; color = '#ddd'; }
+
+  window.addEl(type, w, h, color, type);
+
+  const created = curBlock().elements[curBlock().elements.length - 1];
+  if (type === 'Staircase') created.isStairs = true;
+
+  renderAll();
+};
+
+
+window.deleteSelected = function () {
+  if (!state.selectedId) return;
+  pushHistory();
+  const block = curBlock();
+  block.elements = block.elements.filter(e => e.id !== state.selectedId);
+  state.selectedId = null;
+  renderAll();
+};
+
+
+window.duplicateSelected = function () {
+  const el = getSelected();
+  if (!el) return;
+  pushHistory();
+  const clone = JSON.parse(JSON.stringify(el));
+  clone.id = Date.now();
+  clone.x += 20;
+  clone.y += 20;
+  clone.name += ' (Copy)';
+  curBlock().elements.push(clone);
+  state.selectedId = clone.id;
+  renderAll();
+};
+
+
+/* ================= OPTIMIZED MOVEMENT (GPU) ================= */
+function startDrag(e, el) {
+  if(e.target.classList.contains('resize')) return;
+  e.preventDefault();
+  
+  state.selectedId = el.id;
+  // We manually highlight to avoid full re-render for speed
+  document.querySelectorAll('.element').forEach(d => d.classList.remove('selected'));
+  const div = e.currentTarget;
+  div.classList.add('selected');
+  updatePropsPanel();
+
+  const startX = e.clientX;
+  const startY = e.clientY;
+  const origX = el.x;
+  const origY = el.y;
+  const currentRot = el.r || 0;
+  
+  div.classList.add('dragging');
+  
+  let rAF = null;
+
+  const onMove = (evt) => {
+    if (rAF) return; // Throttle to screen refresh rate
+
+    rAF = requestAnimationFrame(() => {
+      // Calculate delta relative to zoom
+      const rawDx = (evt.clientX - startX) / state.zoom;
+      const rawDy = (evt.clientY - startY) / state.zoom;
+      
+      let newX = origX + rawDx;
+      let newY = origY + rawDy;
+
+      // Snap logic (Mathematical only during drag)
+      if(document.getElementById('snapToggle').checked) {
+        newX = Math.round(newX / state.gridSize) * state.gridSize;
+        newY = Math.round(newY / state.gridSize) * state.gridSize;
+      }
+
+      // Visual offset (GPU accelerated)
+      const currentDx = newX - origX;
+      const currentDy = newY - origY;
+
+      div.style.transform = `translate3d(${currentDx}px, ${currentDy}px, 0) rotate(${currentRot}deg)`;
+
+      // Optional: Update inputs live (cheap operation)
+      const px = document.getElementById('px');
+      const py = document.getElementById('py');
+      if(px) { px.value = newX; py.value = newY; }
+
+      rAF = null;
+    });
+  };
+
+  const onUp = (evt) => {
+    if (rAF) cancelAnimationFrame(rAF);
+    
+    div.classList.remove('dragging');
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+
+    // Calculate final position
+    const rawDx = (evt.clientX - startX) / state.zoom;
+    const rawDy = (evt.clientY - startY) / state.zoom;
+    let finalX = origX + rawDx;
+    let finalY = origY + rawDy;
+
+    if(document.getElementById('snapToggle').checked) {
+        finalX = Math.round(finalX / state.gridSize) * state.gridSize;
+        finalY = Math.round(finalY / state.gridSize) * state.gridSize;
+    }
+
+    // Update Model
+    el.x = finalX;
+    el.y = finalY;
+
+    // Commit to DOM (Remove translate3d, set left/top)
+    div.style.transform = `rotate(${currentRot}deg)`; 
+    div.style.left = el.x + 'px';
+    div.style.top = el.y + 'px';
+
+    if(el.x !== origX || el.y !== origY) pushHistory();
+  };
+
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+}
+
+// ZOOM
+window.updateZoom = function () {
+  const sl = document.getElementById('zoomSlider');
+  state.zoom = parseFloat(sl.value);
+  document.getElementById('zoomVal').textContent =
+    Math.round(state.zoom * 100) + '%';
+  canvasWrap.style.transform = `scale(${state.zoom})`;
+};
+
+
+// RESIZE
+function startResize(e, el) {
+  e.stopPropagation();
+  e.preventDefault();
+  const startX = e.clientX;
+  const startY = e.clientY;
+  const origW = el.w;
+  const origH = el.h;
+  
+  const div = e.target.parentElement;
+  div.classList.add('resizing');
+  const dimTag = document.getElementById('dims-'+el.id);
+
+  const onMove = (evt) => {
+    const dx = (evt.clientX - startX) / state.zoom;
+    const dy = (evt.clientY - startY) / state.zoom;
+
+    el.w = Math.max(20, snap(origW + dx));
+    el.h = Math.max(20, snap(origH + dy));
+
+    div.style.width = el.w + 'px';
+    div.style.height = el.h + 'px';
+    
+    dimTag.textContent = `${el.w} x ${el.h}`;
+    document.getElementById('pwidth').value = el.w;
+    document.getElementById('pheight').value = el.h;
+  };
+
+  const onUp = () => {
+    div.classList.remove('resizing');
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+    if(el.w !== origW || el.h !== origH) pushHistory();
+  };
+
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+}
+
+/* ================= PROPERTY LISTENERS ================= */
+document.getElementById('pname').oninput = function() { getSelected().name = this.value; renderCanvas(); };
+document.getElementById('pwidth').onchange = function() { pushHistory(); getSelected().w = parseInt(this.value); renderCanvas(); };
+document.getElementById('pheight').onchange = function() { pushHistory(); getSelected().h = parseInt(this.value); renderCanvas(); };
+document.getElementById('px').onchange = function() { pushHistory(); getSelected().x = parseInt(this.value); renderCanvas(); };
+document.getElementById('py').onchange = function() { pushHistory(); getSelected().y = parseInt(this.value); renderCanvas(); };
+document.getElementById('prot').oninput = function() { getSelected().r = parseInt(this.value); renderCanvas(); }; 
+document.getElementById('prot').onchange = function() { pushHistory(); };
+document.getElementById('pcolor').onchange = function() { pushHistory(); getSelected().color = this.value; renderCanvas(); };
+document.getElementById('pisStairs').onchange = function() { pushHistory(); getSelected().isStairs = this.checked; renderCanvas(); };
+
+canvas.onclick = (e) => { 
+  if(e.target === canvas) { state.selectedId = null; renderAll(); }
+};
+
+/* ================= KEYBOARD SHORTCUTS ================= */
+window.addEventListener('keydown', (e) => {
+  if(e.target.tagName === 'INPUT') return;
+  
+  if(e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
+  if(e.key === 'Escape') { state.selectedId = null; renderAll(); }
+  if(e.ctrlKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo(); }
+  if(e.ctrlKey && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); }
+  if(e.ctrlKey && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); duplicateSelected(); }
+  
+  if(state.selectedId) {
+    const el = getSelected();
+    if(e.key === 'ArrowRight') el.x += 1;
+    if(e.key === 'ArrowLeft') el.x -= 1;
+    if(e.key === 'ArrowUp') el.y -= 1;
+    if(e.key === 'ArrowDown') el.y += 1;
+    if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(e.key)) {
+      e.preventDefault();
+      renderCanvas();
+      updatePropsPanel();
+    }
+  }
+});
+
+/* ================= EXPORT ================= */
+window.exportJSON = function () {
+  const data =
+    "data:text/json;charset=utf-8," +
+    encodeURIComponent(JSON.stringify(state.floors, null, 2));
+
+  const node = document.createElement("a");
+  node.setAttribute("href", data);
+  node.setAttribute("download", "layout_project.json");
+  document.body.appendChild(node);
+  node.click();
+  node.remove();
+};
+
+window.exportPDF = async function () {
+  if (!window.jspdf) {
+    alert("PDF library loading...");
+    return;
+  }
+
+  const oldZoom = state.zoom;
+  state.zoom = 1;
+  canvasWrap.style.transform = `scale(1)`;
+
+  document
+    .querySelectorAll(".resize, .dims-tag")
+    .forEach((el) => (el.style.display = "none"));
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF("l", "px", [1300, 1000]);
+
+  await html2canvas(canvas, { scale: 2 }).then((c) => {
+    pdf.addImage(c.toDataURL("image/png"), "PNG", 20, 20, 1200, 900);
+    pdf.save("layout_plan.pdf");
+  });
+
+  state.zoom = oldZoom;
+  canvasWrap.style.transform = `scale(${state.zoom})`;
+  renderAll();
+};
+
+
+/* ================= BOOT ================= */
+
+
+</script>
+</body>
+</html>
+ 

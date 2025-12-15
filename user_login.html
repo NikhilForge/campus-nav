@@ -59,7 +59,7 @@ window.loginUser = function () {
     signInWithEmailAndPassword(auth, email, password)
         .then(() => {
             alert("Login successful!");
-            window.location.href = "dashboard.html"; // change if needed
+            window.location.href = "dashboard.html"; 
         })
         .catch((error) => {
             alert(error.message);
