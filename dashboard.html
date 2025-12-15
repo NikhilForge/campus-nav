@@ -764,6 +764,25 @@ window.exportPDF = async function () {
 
 
 /* ================= BOOT ================= */
+// 🔥 AUTH-BASED BOOTSTRAP (THIS WAS MISSING)
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    init();   // ✅ LOAD USER'S FIRESTORE DATA
+  } else {
+    // Optional cleanup on logout
+    state.floors = [{
+      id: 1,
+      name: 'Ground Floor',
+      blocks: [{ id: 101, name: 'Block A', elements: [] }]
+    }];
+    state.currFloorId = 1;
+    state.currBlockId = 101;
+    state.selectedId = null;
+
+    renderAll();
+  }
+});
+
 
 
 </script>
