@@ -141,6 +141,7 @@ input[type="range"]{margin:0; vertical-align:middle; width: 100px;}
       <div style="width:1px;height:20px;background:#ccc;margin:0 10px;"></div>
       <button onclick="exportJSON()">Save JSON</button>
       <button class="primary" onclick="exportPDF()">Export PDF</button>
+      <button onclick="window.location.href='https://peppy-horse-1e80b7.netlify.app/'">Turn To QR</button>
     </div>
   </div>
 
@@ -388,6 +389,18 @@ function renderStructure() {
     }
   });
 }
+
+function generateQR() {
+        const url = window.location.href; // 🔥 gets real hosted URL
+
+        document.getElementById("qrcode").innerHTML = "";
+
+        new QRCode(document.getElementById("qrcode"), {
+            text: url,
+            width: 200,
+            height: 200
+        });
+    }
 
 function renderCanvas() {
   canvas.innerHTML = '';
@@ -788,4 +801,3 @@ onAuthStateChanged(auth, (user) => {
 </script>
 </body>
 </html>
- 
